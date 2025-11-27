@@ -24,8 +24,8 @@ from pathlib import Path as FilePath
 from matplotlib.path import Path as MplPath
 from matplotlib.lines import Line2D
 import zipfile
-from processing.data_cleaning import process_inundation
-from processing import cleaning_utils
+from inflow_ai.processing.data_cleaning import process_inundation
+from inflow_ai.processing import cleaning_utils
 
 # Configure logging
 logging.basicConfig(

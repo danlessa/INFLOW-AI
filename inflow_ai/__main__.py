@@ -2,21 +2,21 @@
 import os
 
 # Import cleaning utils
-from processing import cleaning_utils
+from inflow_ai.processing import cleaning_utils
 
 # Import data processing functions
-from processing.data_cleaning import process_victoria
-from processing.data_cleaning import process_albert
-from processing.data_cleaning import process_kyoga
-from processing.data_cleaning import process_rainfall
-from processing.data_cleaning import process_teleconnections
-from processing.data_cleaning import process_inundation
-from processing.data_cleaning import process_gridded_rainfall
-from processing.data_cleaning import process_gridded_rainfall_cumulative
-from processing.data_cleaning import process_gridded_moisture
+from inflow_ai.processing.data_cleaning import process_victoria
+from inflow_ai.processing.data_cleaning import process_albert
+from inflow_ai.processing.data_cleaning import process_kyoga
+from inflow_ai.processing.data_cleaning import process_rainfall
+from inflow_ai.processing.data_cleaning import process_teleconnections
+from inflow_ai.processing.data_cleaning import process_inundation
+from inflow_ai.processing.data_cleaning import process_gridded_rainfall
+from inflow_ai.processing.data_cleaning import process_gridded_rainfall_cumulative
+from inflow_ai.processing.data_cleaning import process_gridded_moisture
 
 # Import model prediction functions
-from model import make_spatial_prediction
+from inflow_ai import make_spatial_prediction
 
 # Import data manipulation libraries
 import numpy as np

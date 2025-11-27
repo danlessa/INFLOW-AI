@@ -13,11 +13,11 @@ import loguru
 from .. import cleaning_utils
 
 # Import teleconnections download files
-from processing.data_cleaning.download_teleconnections import oni
-from processing.data_cleaning.download_teleconnections import sst
-from processing.data_cleaning.download_teleconnections import soi
-from processing.data_cleaning.download_teleconnections import mjo
-from processing.data_cleaning.download_teleconnections import dmi
+from inflow_ai.processing.data_cleaning.download_teleconnections import oni
+from inflow_ai.processing.data_cleaning.download_teleconnections import sst
+from inflow_ai.processing.data_cleaning.download_teleconnections import soi
+from inflow_ai.processing.data_cleaning.download_teleconnections import mjo
+from inflow_ai.processing.data_cleaning.download_teleconnections import dmi
 
 
 def add_date_columns(teleconnections_dfs):
