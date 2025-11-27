@@ -36,6 +36,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
 def check_file_lengths(*file_paths):
     lengths = []
     for path in file_paths:
@@ -46,15 +47,15 @@ def check_file_lengths(*file_paths):
 
 
 def generate_deployment_sequences_in_memory(
-    inundation_file_path,
-    rainfall_file_path,
-    moisture_file_path,
-    static_dir='data/maps',
-    patch_size=64,
-    stride=32,
-    sequence_length=6,
-    forecast_length=6,
-    num_timesteps=1):
+        inundation_file_path,
+        rainfall_file_path,
+        moisture_file_path,
+        static_dir='data/maps',
+        patch_size=64,
+        stride=32,
+        sequence_length=6,
+        forecast_length=6,
+        num_timesteps=1):
     """
     Generates deployment-ready spatial sequences (in memory) for the last available time slices.
 
@@ -77,11 +78,12 @@ def generate_deployment_sequences_in_memory(
 
     # === Load static maps ===
     elevation = np.load(os.path.join(static_dir, 'elevation.npy'))  # (1, H, W)
-    basin_attributes = np.load(os.path.join(static_dir, 'basin_attributes.npy'))[0:1]  # (1, H, W)
+    basin_attributes = np.load(os.path.join(static_dir, 'basin_attributes.npy'))[
+        0:1]  # (1, H, W)
 
     with h5py.File(inundation_file_path, 'r') as inun_f, \
-         h5py.File(rainfall_file_path, 'r') as rain_f, \
-         h5py.File(moisture_file_path, 'r') as moist_f:
+            h5py.File(rainfall_file_path, 'r') as rain_f, \
+            h5py.File(moisture_file_path, 'r') as moist_f:
 
         inundation = inun_f['inundation']
         rainfall = rain_f['rainfall']
@@ -104,10 +106,12 @@ def generate_deployment_sequences_in_memory(
         num_spatial_patches = len(y_positions) * len(x_positions)
         total_samples = num_time_steps * num_spatial_patches
 
-        logger.info(f"Generating {total_samples} input samples from time {start_t} to {end_t}...")
+        logger.info(
+            f"Generating {total_samples} input samples from time {start_t} to {end_t}...")
 
         # Preallocate in-memory arrays
-        X = np.zeros((total_samples, sequence_length, 5, patch_size, patch_size), dtype=np.float32)
+        X = np.zeros((total_samples, sequence_length, 5,
+                     patch_size, patch_size), dtype=np.float32)
         indices = np.zeros((total_samples, 3), dtype=np.int32)
 
         sample_idx = 0
@@ -118,16 +122,20 @@ def generate_deployment_sequences_in_memory(
                 y_end = y_start + patch_size
                 x_end = x_start + patch_size
 
-                inun_seq = inundation[t:t+sequence_length, y_start:y_end, x_start:x_end]
-                rain_seq = rainfall[t:t+sequence_length, y_start:y_end, x_start:x_end]
-                moist_seq = moisture[t:t+sequence_length, y_start:y_end, x_start:x_end]
+                inun_seq = inundation[t:t+sequence_length,
+                                      y_start:y_end, x_start:x_end]
+                rain_seq = rainfall[t:t+sequence_length,
+                                    y_start:y_end, x_start:x_end]
+                moist_seq = moisture[t:t+sequence_length,
+                                     y_start:y_end, x_start:x_end]
 
                 elev_patch = elevation[:, y_start:y_end, x_start:x_end]
                 basin_patch = basin_attributes[:, y_start:y_end, x_start:x_end]
                 elev_seq = np.repeat(elev_patch, sequence_length, axis=0)
                 basin_seq = np.repeat(basin_patch, sequence_length, axis=0)
 
-                X_sample = np.stack([inun_seq, rain_seq, moist_seq, elev_seq, basin_seq], axis=1)
+                X_sample = np.stack(
+                    [inun_seq, rain_seq, moist_seq, elev_seq, basin_seq], axis=1)
                 X[sample_idx] = X_sample
                 indices[sample_idx] = (t, y_start, x_start)
                 sample_idx += 1
@@ -162,7 +170,8 @@ def load_trained_model(model_path, gamma=3.0, alpha=0.95):
     logger.info(f"Loading model from: {model_path}")
     model = load_model(
         model_path,
-        custom_objects={"loss": masked_binary_focal_loss(gamma=gamma, alpha=alpha)}
+        custom_objects={"loss": masked_binary_focal_loss(
+            gamma=gamma, alpha=alpha)}
     )
     logger.info("✅ Model loaded")
     return model
@@ -247,61 +256,64 @@ def load_spatial_ref(inundation_path="data/downloads/inundation_masks/20250211.t
                      download_path='data/downloads/inundation_masks',
                      inundation_file="20250211.tif"):
 
-      # Process the new TIF files
-      with rasterio.open(inundation_path) as src:
-          inundation = src.read(1)  # First band
-          transform = src.transform
-          crs = src.crs
-          width = src.width
-          height = src.height
-      catchments = process_inundation.load_shapefile(catchments_path)
-      catchments = process_inundation.reproject_to_raster_crs(catchments, inundation_path)
+    # Process the new TIF files
+    with rasterio.open(inundation_path) as src:
+        inundation = src.read(1)  # First band
+        transform = src.transform
+        crs = src.crs
+        width = src.width
+        height = src.height
+    catchments = process_inundation.load_shapefile(catchments_path)
+    catchments = process_inundation.reproject_to_raster_crs(
+        catchments, inundation_path)
 
-      # Process rasters and gather new data
-      inundation_clipped, _, _ = process_inundation.process_and_clip_rasters([inundation_file], download_path, catchments)
-      inundation = inundation_clipped[0]
+    # Process rasters and gather new data
+    inundation_clipped, _, _ = process_inundation.process_and_clip_rasters(
+        [inundation_file], download_path, catchments)
+    inundation = inundation_clipped[0]
 
-      # Crop area to regions of interest
-      regions_gdf = process_inundation.cleaning_utils.extract_regions()
+    # Crop area to regions of interest
+    regions_gdf = process_inundation.cleaning_utils.extract_regions()
 
-      import numpy as np
-      from rasterio.features import rasterize
+    import numpy as np
+    from rasterio.features import rasterize
 
-      # Assign each region a unique integer ID
-      regions_gdf = regions_gdf.copy()
-      regions_gdf['region_id'] = np.arange(1, len(regions_gdf) + 1)
+    # Assign each region a unique integer ID
+    regions_gdf = regions_gdf.copy()
+    regions_gdf['region_id'] = np.arange(1, len(regions_gdf) + 1)
 
-      # Prepare list of (geometry, value) tuples
-      shapes = list(zip(regions_gdf.geometry, regions_gdf['region_id']))
+    # Prepare list of (geometry, value) tuples
+    shapes = list(zip(regions_gdf.geometry, regions_gdf['region_id']))
 
-      # Get transform and shape from raster
-      height, width = inundation.shape
-      regions_gdf = regions_gdf.to_crs(crs)
+    # Get transform and shape from raster
+    height, width = inundation.shape
+    regions_gdf = regions_gdf.to_crs(crs)
 
-      # Reproject regions_gdf to WGS84 (EPSG:4326)
-      regions_gdf = regions_gdf.to_crs(epsg=4326)
+    # Reproject regions_gdf to WGS84 (EPSG:4326)
+    regions_gdf = regions_gdf.to_crs(epsg=4326)
 
-      # Raster reprojection to EPSG:4326
-      from rasterio.warp import calculate_default_transform, reproject, Resampling
+    # Raster reprojection to EPSG:4326
+    from rasterio.warp import calculate_default_transform, reproject, Resampling
 
-      dst_crs = 'EPSG:4326'
-      dst_transform, dst_width, dst_height = calculate_default_transform(
-          crs, dst_crs, width, height, *src.bounds)
+    dst_crs = 'EPSG:4326'
+    dst_transform, dst_width, dst_height = calculate_default_transform(
+        crs, dst_crs, width, height, *src.bounds)
 
-      # Create an empty array for reprojected raster
-      reprojected_inundation = np.empty(shape=(height, width), dtype=inundation.dtype)
-      reproject(
-          source=inundation,
-          destination=reprojected_inundation,
-          src_transform=src.transform,  # ✅ the original transform
-          src_crs=crs,
-          dst_transform=dst_transform,  # ✅ the calculated new one
-          dst_crs=dst_crs,
-          resampling=Resampling.nearest
-      )
+    # Create an empty array for reprojected raster
+    reprojected_inundation = np.empty(
+        shape=(height, width), dtype=inundation.dtype)
+    reproject(
+        source=inundation,
+        destination=reprojected_inundation,
+        src_transform=src.transform,  # ✅ the original transform
+        src_crs=crs,
+        dst_transform=dst_transform,  # ✅ the calculated new one
+        dst_crs=dst_crs,
+        resampling=Resampling.nearest
+    )
 
-      # Return the new transform, CRS, and reprojected regions_gdf & raster array
-      return dst_transform, dst_crs, regions_gdf, reprojected_inundation
+    # Return the new transform, CRS, and reprojected regions_gdf & raster array
+    return dst_transform, dst_crs, regions_gdf, reprojected_inundation
 
 
 def polygon_to_path_patch(polygon, hatch='///', **kwargs):
@@ -319,14 +331,16 @@ def polygon_to_path_patch(polygon, hatch='///', **kwargs):
     # Exterior
     x, y = polygon.exterior.coords.xy
     verts = np.column_stack([x, y])
-    codes = [MplPath.MOVETO] + [MplPath.LINETO] * (len(verts) - 2) + [MplPath.CLOSEPOLY]
+    codes = [MplPath.MOVETO] + [MplPath.LINETO] * \
+        (len(verts) - 2) + [MplPath.CLOSEPOLY]
     vertices.extend(verts.tolist())
 
     # Interiors (holes)
     for interior in polygon.interiors:
         x, y = interior.coords.xy
         verts = np.column_stack([x, y])
-        codes += [MplPath.MOVETO] + [MplPath.LINETO] * (len(verts) - 2) + [MplPath.CLOSEPOLY]
+        codes += [MplPath.MOVETO] + [MplPath.LINETO] * \
+            (len(verts) - 2) + [MplPath.CLOSEPOLY]
         vertices.extend(verts.tolist())
 
     path = MplPath(vertices, codes)
@@ -337,7 +351,7 @@ def align_mask(mask_array, src_transform, src_crs, metas, inundation_file):
     aligned = np.zeros((
         metas[inundation_file]["height"],
         metas[inundation_file]["width"]
-        ), dtype=np.uint8)
+    ), dtype=np.uint8)
     reproject(
         source=mask_array,
         destination=aligned,
@@ -351,15 +365,19 @@ def align_mask(mask_array, src_transform, src_crs, metas, inundation_file):
 
 
 def plot_flood_change_map(
-    masks, current_extent, transform, crs, regions_gdf,
-    inundation_clipped, metas, inundation_file='20250211.tif',
-    title="Flood Change Map", region_name=None):
+        masks, current_extent, transform, crs, regions_gdf,
+        inundation_clipped, metas, inundation_file='20250211.tif',
+        title="Flood Change Map", region_name=None):
 
     # --- Align all masks ---
-    current = align_mask((current_extent > 0).astype(np.uint8), metas[inundation_file]["transform"], metas[inundation_file]['crs'], metas, inundation_file)
-    worst = align_mask((masks["Worst Case"] > 0).astype(np.uint8), metas[inundation_file]["transform"], metas[inundation_file]['crs'], metas, inundation_file)
-    avg = align_mask((masks["Average Case"] > 0).astype(np.uint8), metas[inundation_file]["transform"], metas[inundation_file]['crs'], metas, inundation_file)
-    best = align_mask((masks["Best Case"] > 0).astype(np.uint8), metas[inundation_file]["transform"], metas[inundation_file]['crs'], metas, inundation_file)
+    current = align_mask((current_extent > 0).astype(
+        np.uint8), metas[inundation_file]["transform"], metas[inundation_file]['crs'], metas, inundation_file)
+    worst = align_mask((masks["Worst Case"] > 0).astype(
+        np.uint8), metas[inundation_file]["transform"], metas[inundation_file]['crs'], metas, inundation_file)
+    avg = align_mask((masks["Average Case"] > 0).astype(np.uint8), metas[inundation_file]
+                     ["transform"], metas[inundation_file]['crs'], metas, inundation_file)
+    best = align_mask((masks["Best Case"] > 0).astype(np.uint8), metas[inundation_file]
+                      ["transform"], metas[inundation_file]['crs'], metas, inundation_file)
 
     # Use the transform from clipped raster metadata (not src!)
     out_meta = metas[inundation_file].copy()
@@ -372,11 +390,16 @@ def plot_flood_change_map(
     currently_dry = current == 0
 
     no_change_dry = currently_dry & (worst == 0) & (avg == 0) & (best == 0)
-    no_change_flooded = currently_flooded & (worst == 1) & (avg == 1) & (best == 1)
-    very_likely_decrease = currently_flooded & (worst == 0) & (avg == 0) & (best == 0)
-    likely_decrease = currently_flooded & (worst == 1) & (avg == 0) & (best == 0)
-    possible_decrease = currently_flooded & (worst == 1) & (avg == 1) & (best == 0)
-    very_likely_increase = currently_dry & (worst == 1) & (avg == 1) & (best == 1)
+    no_change_flooded = currently_flooded & (
+        worst == 1) & (avg == 1) & (best == 1)
+    very_likely_decrease = currently_flooded & (
+        worst == 0) & (avg == 0) & (best == 0)
+    likely_decrease = currently_flooded & (
+        worst == 1) & (avg == 0) & (best == 0)
+    possible_decrease = currently_flooded & (
+        worst == 1) & (avg == 1) & (best == 0)
+    very_likely_increase = currently_dry & (
+        worst == 1) & (avg == 1) & (best == 1)
     likely_increase = currently_dry & (worst == 1) & (avg == 1) & (best == 0)
     possible_increase = currently_dry & (worst == 1) & (avg == 0) & (best == 0)
 
@@ -396,7 +419,8 @@ def plot_flood_change_map(
         selected_region = regions_gdf[regions_gdf['region'] == region_name]
         selected_region = selected_region.to_crs(target_crs)
         if selected_region.empty:
-            raise ValueError(f"Region '{region_name}' not found in regions_gdf.")
+            raise ValueError(
+                f"Region '{region_name}' not found in regions_gdf.")
         state_boundaries = selected_region
         country_boundary = selected_region
     else:
@@ -427,8 +451,10 @@ def plot_flood_change_map(
     ax.imshow(colors, origin='upper', extent=extent)
 
     # --- Plot region boundaries ---
-    state_boundaries.boundary.plot(ax=ax, color='black', linewidth=0.5, alpha=0.25)
-    country_boundary.boundary.plot(ax=ax, color='black', linewidth=1.5, alpha=0.5)
+    state_boundaries.boundary.plot(
+        ax=ax, color='black', linewidth=0.5, alpha=0.25)
+    country_boundary.boundary.plot(
+        ax=ax, color='black', linewidth=1.5, alpha=0.5)
 
     # --- Continue with legends, labels, points, hatching, etc. (unchanged) ---
     # Get Abyei geometry
@@ -463,12 +489,18 @@ def plot_flood_change_map(
     # --- Main legend for flood categories (bottom left) ---
     flood_legend_patches = [
         mpatches.Patch(color="#d3d3d3", label="No change (remains flooded)"),
-        mpatches.Patch(color="#f4a261", label="Possible flood decrease (best-case only)"),
-        mpatches.Patch(color="#e76f51", label="Likely flood decrease (average case)"),
-        mpatches.Patch(color="#9b2226", label="Very likely flood decrease (all scenarios)"),
-        mpatches.Patch(color="#a8dadc", label="Possible flood increase (worst-case only)"),
-        mpatches.Patch(color="#457b9d", label="Likely flood increase (average case)"),
-        mpatches.Patch(color="#1d3557", label="Very likely flood increase (all scenarios)")
+        mpatches.Patch(color="#f4a261",
+                       label="Possible flood decrease (best-case only)"),
+        mpatches.Patch(color="#e76f51",
+                       label="Likely flood decrease (average case)"),
+        mpatches.Patch(color="#9b2226",
+                       label="Very likely flood decrease (all scenarios)"),
+        mpatches.Patch(color="#a8dadc",
+                       label="Possible flood increase (worst-case only)"),
+        mpatches.Patch(color="#457b9d",
+                       label="Likely flood increase (average case)"),
+        mpatches.Patch(color="#1d3557",
+                       label="Very likely flood increase (all scenarios)")
     ]
     legend1 = ax.legend(
         handles=flood_legend_patches,
@@ -480,9 +512,9 @@ def plot_flood_change_map(
 
     # --- Separate legend for population centres (bottom right) ---
     if region_name:
-      pop_label = 'Population centre'
+        pop_label = 'Population centre'
     else:
-      pop_label = 'Population centre (≥10,000 people)'
+        pop_label = 'Population centre (≥10,000 people)'
 
     population_legend = Line2D(
         [0], [0],
@@ -526,16 +558,19 @@ def plot_flood_change_map(
         ])
 
     # Plot population centres
-    pop_centres = gpd.read_file("data/maps/population_centres/hotosm_ssd_populated_places_points_shp.shp")
-    pop_centres['name_en'] = np.where(pop_centres['name_en'].isna(), pop_centres['name'], pop_centres['name_en'])
+    pop_centres = gpd.read_file(
+        "data/maps/population_centres/hotosm_ssd_populated_places_points_shp.shp")
+    pop_centres['name_en'] = np.where(
+        pop_centres['name_en'].isna(), pop_centres['name'], pop_centres['name_en'])
     if pop_centres.crs != target_crs:
-      pop_centres = pop_centres.to_crs(target_crs)
+        pop_centres = pop_centres.to_crs(target_crs)
     pop_centres = pop_centres[pop_centres['population'].notna()]
     pop_centres = pop_centres[pop_centres['population'].astype(int) >= 10000]
 
     # Filter to selected region if applicable
     if region_name:
-        pop_centres = gpd.sjoin(pop_centres, selected_region, how="inner", predicate="intersects")
+        pop_centres = gpd.sjoin(
+            pop_centres, selected_region, how="inner", predicate="intersects")
 
     # Clip population centres to region
     if region_name:
@@ -545,8 +580,8 @@ def plot_flood_change_map(
 
     # Plot only if non-empty
     if not pop_centres_clipped.empty:
-        pop_centres_clipped.plot(ax=ax, markersize=20, color='white', edgecolor='black', linewidth=0.5, zorder=3)
-
+        pop_centres_clipped.plot(
+            ax=ax, markersize=20, color='white', edgecolor='black', linewidth=0.5, zorder=3)
 
     # --- Manually entered MSF project locations (as red plus signs, no labels) ---
     msf_locations = [
@@ -563,7 +598,8 @@ def plot_flood_change_map(
 
     # Plot MSF sites
     for _, lat, lon in msf_locations:
-        point_geo = gpd.GeoSeries([Point(lon, lat)], crs="EPSG:4326").to_crs(target_crs)
+        point_geo = gpd.GeoSeries(
+            [Point(lon, lat)], crs="EPSG:4326").to_crs(target_crs)
         x, y = point_geo.geometry.x.values[0], point_geo.geometry.y.values[0]
 
         if region_name:
@@ -619,12 +655,12 @@ def plot_flood_change_map(
     ax.axis('off')
     ax.set_title(title, size=16)
     ax.text(
-    0.5, 1.01,  # x centered, y just under the main title
-    "*Forecast of MODIS flood mask at 1km x 1km resolution",  # your subtitle text
-    transform=ax.transAxes,
-    ha='center',
-    fontsize=10,
-    style='italic'
+        0.5, 1.01,  # x centered, y just under the main title
+        "*Forecast of MODIS flood mask at 1km x 1km resolution",  # your subtitle text
+        transform=ax.transAxes,
+        ha='center',
+        fontsize=10,
+        style='italic'
     )
 
     plt.tight_layout()
@@ -636,7 +672,8 @@ def load_latest_prediction_csv(base_path="predictions"):
     subdirs = [os.path.join(base_path, d) for d in os.listdir(base_path)
                if os.path.isdir(os.path.join(base_path, d))]
     if not subdirs:
-        raise FileNotFoundError("No subdirectories found in predictions folder.")
+        raise FileNotFoundError(
+            "No subdirectories found in predictions folder.")
 
     latest_folder = max(subdirs, key=os.path.getmtime)
     folder_name = os.path.basename(latest_folder)
@@ -654,7 +691,8 @@ def generate_flood_mask(prob_map, flood_percent):
     valid_probs = prob_map[valid_mask]
     n_flood_pixels = int(np.round(flood_percent * valid_probs.size))
     sorted_probs = np.sort(valid_probs)[::-1]
-    threshold = sorted_probs[n_flood_pixels - 1] if n_flood_pixels > 0 else np.inf
+    threshold = sorted_probs[n_flood_pixels -
+                             1] if n_flood_pixels > 0 else np.inf
     binary_mask = np.zeros_like(prob_map, dtype=np.uint8)
     binary_mask[(prob_map >= threshold) & valid_mask] = 1
     return binary_mask
@@ -677,10 +715,11 @@ def export_raster(mask, path, transform, crs):
 
 def export_qgis_files(masks, current_extent, transform, crs, regions_gdf, folder_title,
                       metas, inundation_file='20250211.tif'):
-  
+
     from tempfile import TemporaryDirectory
 
-    zip_path = FilePath(f"predictions/{folder_title}/spatial_predictions/flood_prediction_spatial_data.zip")
+    zip_path = FilePath(
+        f"predictions/{folder_title}/spatial_predictions/flood_prediction_spatial_data.zip")
     with TemporaryDirectory() as temp_dir:
         temp_path = FilePath(temp_dir)
 
@@ -690,37 +729,39 @@ def export_qgis_files(masks, current_extent, transform, crs, regions_gdf, folder
         # Align and export rasters
         export_raster(
             align_mask((masks["Worst Case"] > 0).astype(np.uint8),
-                      metas[inundation_file]["transform"],
-                      metas[inundation_file]["crs"], metas, inundation_file),
+                       metas[inundation_file]["transform"],
+                       metas[inundation_file]["crs"], metas, inundation_file),
             temp_path / "flood_scenario_worst.tif", transform, crs
         )
 
         export_raster(
             align_mask((masks["Average Case"] > 0).astype(np.uint8),
-                      metas[inundation_file]["transform"],
-                      metas[inundation_file]["crs"], metas, inundation_file),
+                       metas[inundation_file]["transform"],
+                       metas[inundation_file]["crs"], metas, inundation_file),
             temp_path / "flood_scenario_average.tif", transform, crs
         )
 
         export_raster(
             align_mask((masks["Best Case"] > 0).astype(np.uint8),
-                      metas[inundation_file]["transform"],
-                      metas[inundation_file]["crs"], metas, inundation_file),
+                       metas[inundation_file]["transform"],
+                       metas[inundation_file]["crs"], metas, inundation_file),
             temp_path / "flood_scenario_best.tif", transform, crs
         )
 
         export_raster(
             align_mask((current_extent > 0).astype(np.uint8),
-                      metas[inundation_file]["transform"],
-                      metas[inundation_file]["crs"], metas, inundation_file),
+                       metas[inundation_file]["transform"],
+                       metas[inundation_file]["crs"], metas, inundation_file),
             temp_path / "current_extent.tif", transform, crs
         )
 
         regions_gdf.to_file(temp_path / "admin_boundaries.shp")
 
-        pop_centres = gpd.read_file("data/maps/population_centres/hotosm_ssd_populated_places_points_shp.shp")
+        pop_centres = gpd.read_file(
+            "data/maps/population_centres/hotosm_ssd_populated_places_points_shp.shp")
         pop_centres = pop_centres[pop_centres['population'].notna()]
-        pop_centres = pop_centres[pop_centres['population'].astype(int) >= 10000]
+        pop_centres = pop_centres[pop_centres['population'].astype(
+            int) >= 10000]
         pop_centres = pop_centres.to_crs(crs)
         pop_centres.to_file(temp_path / "population_centres.shp")
 
@@ -738,7 +779,8 @@ def export_qgis_files(masks, current_extent, transform, crs, regions_gdf, folder
         msf_gdf = gpd.GeoDataFrame(
             msf_data,
             columns=["name", "lat", "lon"],
-            geometry=gpd.points_from_xy([x[2] for x in msf_data], [x[1] for x in msf_data]),
+            geometry=gpd.points_from_xy([x[2] for x in msf_data], [
+                                        x[1] for x in msf_data]),
             crs="EPSG:4326"
         ).to_crs(crs)
         msf_gdf.to_file(temp_path / "msf_locations.shp")
@@ -758,7 +800,8 @@ def run_full_spatial_analysis():
     pred_df, folder_title = load_latest_prediction_csv()
 
     # Determine example time index
-    assert sorted(maps.keys())[-1] + 13 == len(pred_df), f"Mismatch in prediction timeline with historic data = {sorted(maps.keys())[-1] + 13} and prediction data = {len(pred_df)}"
+    assert sorted(maps.keys())[-1] + 13 == len(
+        pred_df), f"Mismatch in prediction timeline with historic data = {sorted(maps.keys())[-1] + 13} and prediction data = {len(pred_df)}"
     example_t = sorted(maps.keys())[-1]
 
     # Extract flood thresholds
@@ -781,10 +824,10 @@ def run_full_spatial_analysis():
     transform, crs, regions_gdf, _ = load_spatial_ref()
 
     # Load transformation reference
-    inundation_path="data/downloads/inundation_masks/20250211.tif"
-    catchments_path="data/maps/inflow_catchments/INFLOW_all_cmts.shp"
-    download_path='data/downloads/inundation_masks'
-    inundation_file="20250211.tif"
+    inundation_path = "data/downloads/inundation_masks/20250211.tif"
+    catchments_path = "data/maps/inflow_catchments/INFLOW_all_cmts.shp"
+    download_path = 'data/downloads/inundation_masks'
+    inundation_file = "20250211.tif"
 
     # Process the new TIF files
     with rasterio.open(inundation_path) as src:
@@ -794,7 +837,8 @@ def run_full_spatial_analysis():
         width = src.width
         height = src.height
     catchments = process_inundation.load_shapefile(catchments_path)
-    catchments = process_inundation.reproject_to_raster_crs(catchments, inundation_path)
+    catchments = process_inundation.reproject_to_raster_crs(
+        catchments, inundation_path)
 
     # Run the clipping function
     inundation_clipped, _, metas = process_inundation.process_and_clip_rasters(
@@ -808,7 +852,8 @@ def run_full_spatial_analysis():
     title = f"Predicted South Sudan Flood Extent Change from {folder_title[23:33]} to {folder_title[-10:]}\n"
     fig = plot_flood_change_map(masks, current_extent, transform, crs, regions_gdf,
                                 inundation_clipped, metas, inundation_file='20250211.tif', title=title)
-    fig.savefig(output_dir / f"south_sudan_spatial_prediction_{folder_title[23:33]}_to_{folder_title[-10:]}.png", dpi=300)
+    fig.savefig(
+        output_dir / f"south_sudan_spatial_prediction_{folder_title[23:33]}_to_{folder_title[-10:]}.png", dpi=300)
     plt.close(fig)
 
     # Plot regions
@@ -831,4 +876,5 @@ def run_full_spatial_analysis():
             print(f"Error plotting {region}: {e}")
 
     # Export for QGIS
-    export_qgis_files(masks, current_extent, transform, crs, regions_gdf, folder_title, metas, inundation_file='20250211.tif')
+    export_qgis_files(masks, current_extent, transform, crs, regions_gdf,
+                      folder_title, metas, inundation_file='20250211.tif')

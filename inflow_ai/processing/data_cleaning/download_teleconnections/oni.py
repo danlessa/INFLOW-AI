@@ -12,11 +12,14 @@ import pandas as pd
 
 SOURCE_URL = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"
 FILE_PATH_PARTS = ("data/downloads/teleconnections", "oni.txt")
-DATA_ROOT = Path(os.getcwd()) # Modify as needed
-FOLDER_PATH = os.path.join(DATA_ROOT, 'data/downloads/teleconnections') # Modify as needed
+DATA_ROOT = Path(os.getcwd())  # Modify as needed
+FOLDER_PATH = os.path.join(
+    DATA_ROOT, 'data/downloads/teleconnections')  # Modify as needed
+
 
 def download_oni(
-    skip_existing: Annotated[bool, typer.Option(help="Whether to skip an existing file.")] = False,
+    skip_existing: Annotated[bool, typer.Option(
+        help="Whether to skip an existing file.")] = False,
 ):
     """Download Oceanic Nino Index data."""
     logger.info("Downloading ONI data...")
@@ -35,14 +38,16 @@ def download_oni(
 
 def import_oni():
     # Import oni dataset
-    df_oni = pd.read_table(os.path.join(FOLDER_PATH, "oni.txt"), delim_whitespace=True)
+    df_oni = pd.read_table(os.path.join(
+        FOLDER_PATH, "oni.txt"), delim_whitespace=True)
     return df_oni
 
 
 def clean_oni(df_oni):
     # Basic cleaning for oni dataset
     df_oni = df_oni.rename(columns={'YR': 'year'})
-    df_oni = df_oni.rename(columns={c: 'oni' + c for c in df_oni.columns if c not in ['year', 'month']})
+    df_oni = df_oni.rename(
+        columns={c: 'oni' + c for c in df_oni.columns if c not in ['year', 'month']})
 
     month_conversion_dictionary = {
         'DJF': 1,
@@ -60,6 +65,7 @@ def clean_oni(df_oni):
     }
     df_oni['month'] = df_oni.oniSEAS.map(month_conversion_dictionary.get)
     return df_oni.drop(columns='oniSEAS')
+
 
 def process_oni():
     download_oni()

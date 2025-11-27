@@ -13,11 +13,14 @@ import numpy as np
 
 SOURCE_URL = "https://www.cpc.ncep.noaa.gov/products/international/ocean_monitoring/indian/IODMI/mnth.ersstv5.clim19912020.dmi_current.txt"
 FILE_PATH_PARTS = ("data/downloads/teleconnections", "dmi.txt")
-DATA_ROOT = Path(os.getcwd()) # Modify as needed
-FOLDER_PATH = os.path.join(DATA_ROOT, 'data/downloads/teleconnections') # Modify as needed
+DATA_ROOT = Path(os.getcwd())  # Modify as needed
+FOLDER_PATH = os.path.join(
+    DATA_ROOT, 'data/downloads/teleconnections')  # Modify as needed
+
 
 def download_dmi(
-    skip_existing: Annotated[bool, typer.Option(help="Whether to skip an existing file.")] = False,
+    skip_existing: Annotated[bool, typer.Option(
+        help="Whether to skip an existing file.")] = False,
 ):
     """Download Oceanic Nino Index data."""
     logger.info("Downloading DMI data...")
@@ -47,11 +50,12 @@ def clean_dmi(df_dmi):
         'Year': 'year', 'Month': 'month', 'WTIO': 'wtio',
         'SETIO': 'setio', 'DMI': 'dmi'
     })
-    
+
     # Replace '********' with NaN
     df_dmi = df_dmi.replace("********", np.nan)
-    df_dmi[['wtio', 'setio', 'dmi']] = df_dmi[['wtio', 'setio', 'dmi']].apply(pd.to_numeric, errors='coerce')
-    
+    df_dmi[['wtio', 'setio', 'dmi']] = df_dmi[['wtio', 'setio', 'dmi']].apply(
+        pd.to_numeric, errors='coerce')
+
     return df_dmi
 
 

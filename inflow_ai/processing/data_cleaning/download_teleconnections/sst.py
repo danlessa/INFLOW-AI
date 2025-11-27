@@ -12,11 +12,14 @@ import pandas as pd
 
 SOURCE_URL = "https://www.cpc.ncep.noaa.gov/data/indices/sstoi.indices"
 FILE_PATH_PARTS = ("data/downloads/teleconnections", "sst.txt")
-DATA_ROOT = Path(os.getcwd()) # Modify as needed
-FOLDER_PATH = os.path.join(DATA_ROOT, 'data/downloads/teleconnections') # Modify as needed
+DATA_ROOT = Path(os.getcwd())  # Modify as needed
+FOLDER_PATH = os.path.join(
+    DATA_ROOT, 'data/downloads/teleconnections')  # Modify as needed
+
 
 def download_sst(
-    skip_existing: Annotated[bool, typer.Option(help="Whether to skip an existing file.")] = False,
+    skip_existing: Annotated[bool, typer.Option(
+        help="Whether to skip an existing file.")] = False,
 ):
     """Download Nino Regions Sea Surface Temperatures (SST) data."""
     logger.info("Downloading SST data...")
@@ -35,15 +38,18 @@ def download_sst(
 
 def import_sst():
     # Import sst dataset
-    df_sst = pd.read_table(os.path.join(FOLDER_PATH, "sst.txt"), delim_whitespace=True)
+    df_sst = pd.read_table(os.path.join(
+        FOLDER_PATH, "sst.txt"), delim_whitespace=True)
     return df_sst
 
 
 def clean_sst(df_sst):
     # Basic cleaning for sst dataset
     df_sst = df_sst.rename(columns={'YR': 'year', 'MON': 'month'})
-    df_sst = df_sst.rename(columns={c: 'nino' + c for c in df_sst.columns if c not in ['year', 'month']})
+    df_sst = df_sst.rename(
+        columns={c: 'nino' + c for c in df_sst.columns if c not in ['year', 'month']})
     return df_sst
+
 
 def process_sst():
     download_sst()

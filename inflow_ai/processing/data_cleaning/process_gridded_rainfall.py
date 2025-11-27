@@ -36,16 +36,17 @@ from tqdm import tqdm
 
 # Configure logging
 import logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    
-    
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+
 def read_stats(region='all'):
     """
     Read the gridded data statistics file.
     """
     rainfall_mean = gridded_data_stats.gridded_rainfall_stats[region]['mean']
     rainfall_std = gridded_data_stats.gridded_rainfall_stats[region]['std']
-    
+
     return rainfall_mean, rainfall_std
 
 
@@ -79,7 +80,8 @@ def reproject_rainfall(rainfall_ds, target_crs, target_transform, target_width, 
     rainfall_crs = rainfall_ds.crs
 
     # Reproject the rainfall data to match the target CRS, dimensions, and resolution
-    reprojected_rainfall = np.empty((target_height, target_width), dtype=rainfall_data.dtype)
+    reprojected_rainfall = np.empty(
+        (target_height, target_width), dtype=rainfall_data.dtype)
     reproject(
         source=rainfall_data,
         destination=reprojected_rainfall,
@@ -87,7 +89,8 @@ def reproject_rainfall(rainfall_ds, target_crs, target_transform, target_width, 
         src_crs=rainfall_crs,
         dst_transform=target_transform,
         dst_crs=target_crs,
-        resampling=Resampling.bilinear  # Bilinear resampling for continuous data (adjust if needed)
+        # Bilinear resampling for continuous data (adjust if needed)
+        resampling=Resampling.bilinear
     )
     return reprojected_rainfall
 
@@ -101,7 +104,8 @@ def extract_date_from_filename(filename):
     """
     if filename.endswith('.tif'):
         # Split by '_' and handle cases where extra characters (like ' (1)') are added
-        date_str = filename.split('_')[-1].split('.')[0]  # Extract the 'YYYYMMDD' part and ignore anything after '.'
+        # Extract the 'YYYYMMDD' part and ignore anything after '.'
+        date_str = filename.split('_')[-1].split('.')[0]
         # Remove any non-digit characters (in case of extra numbering like "(1)")
         date_str = ''.join(filter(str.isdigit, date_str))
         try:
@@ -129,7 +133,7 @@ def download_gridded_rainfall(dates_list, download_path):
             "end_date": dates_list[-1],
             "version": 3.1,
             "localdata_dir": download_path
-            })
+        })
     except Exception as e:
         print(f"Error occurred while downloading TAMSAT data: {e}")
 
@@ -156,7 +160,7 @@ def extract_gridded_rainfall(dates_list, download_path):
             "end_date": dates_list[-1],
             "version": 3.1,
             "localdata_dir": download_path
-            })
+        })
 
     except Exception as e:
         print(f"Error occurred while extracting gridded rainfall data: {e}")
@@ -191,11 +195,14 @@ def download_new_gridded_rainfall(download_folder):
 
     if historic_dates:
         last_date = historic_dates[-1]  # Get the last downloaded date
-        last_date = datetime.strptime(last_date, "%Y-%m-%d").strftime("%Y-%m-%d")  # Ensure the format is YYYY-MM-DD
+        # Ensure the format is YYYY-MM-DD
+        last_date = datetime.strptime(
+            last_date, "%Y-%m-%d").strftime("%Y-%m-%d")
     else:
         last_date = datetime.now().strftime("%Y-%m-%d")
 
-    new_dates = cleaning_utils.get_dates_of_interest(start_date_str=last_date, end_date_str=current_date_str)
+    new_dates = cleaning_utils.get_dates_of_interest(
+        start_date_str=last_date, end_date_str=current_date_str)
 
     if new_dates:
         download_gridded_rainfall(new_dates, download_path_full)
@@ -238,7 +245,7 @@ def group_dates_by_decade(dates):
 
     # Remove incomplete dekads
     grouped_indices = [group for group in grouped_indices if len(group) >= 8]
-    
+
     return date_groups, grouped_indices
 
 
@@ -252,14 +259,14 @@ def export_decadal_geotiffs(extract_folder, output_folder):
     """
     # Use glob to get all file paths in the folder
     files = glob.glob(os.path.join(output_folder, '*'))
-    
+
     # Loop through the files and delete each one
     for file in files:
         try:
             os.remove(file)
         except Exception as e:
             print(f"Error deleting {file}: {e}")
-            
+
     # Get latest extracted gridded rainfall file
     list_of_files = glob.glob(os.path.join(os.getcwd(), extract_folder, '*'))
     latest_file = max(list_of_files, key=os.path.getctime)
@@ -288,7 +295,7 @@ def export_decadal_geotiffs(extract_folder, output_folder):
     # Calculate the spatial extent
     min_lon, max_lon = lons.min(), lons.max()
     max_lat, min_lat = lats.max(), lats.min()
-    
+
     # Group the dates into decades (1-10, 11-20, 21-end)
     date_groups, grouped_indices = group_dates_by_decade(dates)
 
@@ -302,7 +309,8 @@ def export_decadal_geotiffs(extract_folder, output_folder):
         first_dekad_str = first_date.strftime("%Y%m%d")
 
         # Define output file path for each decadal period
-        output_file = os.path.join(output_folder, f'rainfall_decadal_{first_dekad_str}.tif')
+        output_file = os.path.join(
+            output_folder, f'rainfall_decadal_{first_dekad_str}.tif')
 
         # Define transform using the latitude and longitude arrays
         lon_min = lons.min()
@@ -329,7 +337,7 @@ def export_decadal_geotiffs(extract_folder, output_folder):
             dst.write(decadal_avg, 1)
 
         print(f'Exported decadal GeoTIFF for {first_dekad_str}')
-        
+
 
 def crop_historic_data(file_path, temporal_data_path):
     """
@@ -383,29 +391,38 @@ def process_new_gridded_rainfall(rainfall_dekads_folder,
         rainfall_dekads_folder (str): Folder with extracted rainfall dekads.
     """
     # List rainfall files and filter only the valid .tif files
-    rainfall_dekads_files = [f for f in os.listdir(rainfall_dekads_folder) if f.endswith('.tif') and not f.endswith('(1).tif')]
+    rainfall_dekads_files = [f for f in os.listdir(
+        rainfall_dekads_folder) if f.endswith('.tif') and not f.endswith('(1).tif')]
 
     # Sort the list of valid tif files based on their extracted date
-    rainfall_files_sorted = sorted(rainfall_dekads_files, key=lambda f: extract_date_from_filename(f))
-    rainfall_dekads_files_new = glob.glob(os.path.join(rainfall_dekads_folder, '*'))
-    
+    rainfall_files_sorted = sorted(
+        rainfall_dekads_files, key=lambda f: extract_date_from_filename(f))
+    rainfall_dekads_files_new = glob.glob(
+        os.path.join(rainfall_dekads_folder, '*'))
+
     # Extract valid dates
-    rainfall_dates = [extract_date_from_filename(f) for f in rainfall_dekads_files_new]
+    rainfall_dates = [extract_date_from_filename(
+        f) for f in rainfall_dekads_files_new]
     rainfall_dates = [d for d in rainfall_dates if d is not None]
 
     # Create a DataFrame for alignment
-    dates = pd.to_datetime([date.strftime('%Y-%m-%d') for date in rainfall_dates])
+    dates = pd.to_datetime([date.strftime('%Y-%m-%d')
+                           for date in rainfall_dates])
     dates_df = pd.DataFrame({'date': dates}).sort_values('date').reset_index()
     sorted_dates = list(dates_df['date'])
-    rainfall_df = pd.DataFrame({'rainfall_file': rainfall_dekads_files_new, 'rainfall_date': rainfall_dates}).sort_values('rainfall_date').reset_index()
+    rainfall_df = pd.DataFrame({'rainfall_file': rainfall_dekads_files_new,
+                               'rainfall_date': rainfall_dates}).sort_values('rainfall_date').reset_index()
 
     # Merge the two dataframes to ensure every MODIS date has a corresponding rainfall date
-    aligned_df = pd.merge(dates_df, rainfall_df, left_on='date', right_on='rainfall_date', how='left').sort_values('rainfall_date').reset_index()
+    aligned_df = pd.merge(dates_df, rainfall_df, left_on='date', right_on='rainfall_date',
+                          how='left').sort_values('rainfall_date').reset_index()
 
     # Check for missing dates
-    missing_rainfall_dates = aligned_df[aligned_df['rainfall_file'].isna()]['date']
+    missing_rainfall_dates = aligned_df[aligned_df['rainfall_file'].isna(
+    )]['date']
     if not missing_rainfall_dates.empty:
-        print(f"Warning: Missing rainfall data for {len(missing_rainfall_dates)} dates.")
+        print(
+            f"Warning: Missing rainfall data for {len(missing_rainfall_dates)} dates.")
 
     # Align rainfall files
     aligned_rainfall_files = aligned_df['rainfall_file'].tolist()
@@ -420,26 +437,31 @@ def process_new_gridded_rainfall(rainfall_dekads_folder,
     def ensure_crs_match(geodf, raster_file):
         with rasterio.open(raster_file) as src:
             return geodf.to_crs(src.crs)
-    
-    sample_tif_path = os.path.join(sample_tif_folder, os.listdir(sample_tif_folder)[0])
+
+    sample_tif_path = os.path.join(
+        sample_tif_folder, os.listdir(sample_tif_folder)[0])
     catchments = ensure_crs_match(catchments, sample_tif_path)
 
     # Read the sample tif file to get its transform and dimensions
     with rasterio.open(sample_tif_path) as src:
-        clipped, clipped_transform = rasterio_mask(src, catchments.geometry, crop=True)
+        clipped, clipped_transform = rasterio_mask(
+            src, catchments.geometry, crop=True)
         sample_width = clipped.shape[2]
         sample_height = clipped.shape[1]
         sample_crs = src.crs
-        sample_bounds = rasterio.transform.array_bounds(sample_height, sample_width, clipped_transform)
-        sample_res = (src.res[0], src.res[1])  # Get the resolution of the sample tif (pixel size)
+        sample_bounds = rasterio.transform.array_bounds(
+            sample_height, sample_width, clipped_transform)
+        # Get the resolution of the sample tif (pixel size)
+        sample_res = (src.res[0], src.res[1])
 
     # Proceed with processing aligned rainfall files
     for rainfall_tif in tqdm(aligned_rainfall_files, desc="Processing aligned rainfall TIF files"):
 
         try:
             if pd.notna(rainfall_tif):  # Only process valid tif files
-                rainfall_tif_path = os.path.join(rainfall_dekads_folder, rainfall_tif)
-                
+                rainfall_tif_path = os.path.join(
+                    rainfall_dekads_folder, rainfall_tif)
+
                 # Open rainfall GeoTIFF
                 with rasterio.open(rainfall_tif_path) as rainfall_ds:
                     # Reproject and resample rainfall data to match the sample tif's CRS, bounds, and resolution
@@ -450,25 +472,29 @@ def process_new_gridded_rainfall(rainfall_dekads_folder,
                         target_width=sample_width,
                         target_height=sample_height
                     )
-    
+
                 # Convert resampled rainfall data to array
                 if resampled_rainfall is not None:
                     rainfall_data_list.append(resampled_rainfall)
                 else:
-                    logging.error(f"Reprojection returned None for file: {rainfall_tif_path}")
+                    logging.error(
+                        f"Reprojection returned None for file: {rainfall_tif_path}")
             else:
                 logging.error(f"Skipping invalid or NaN entry: {rainfall_tif}")
-    
+
         except FileNotFoundError as fnf_error:
-            logging.error(f"File not found: {rainfall_tif_path}. Error: {fnf_error}")
+            logging.error(
+                f"File not found: {rainfall_tif_path}. Error: {fnf_error}")
             continue  # Proceed to next iteration if file not found
-    
+
         except rasterio.errors.RasterioError as raster_error:
-            logging.error(f"Error opening or processing GeoTIFF file: {rainfall_tif_path}. Error: {raster_error}")
+            logging.error(
+                f"Error opening or processing GeoTIFF file: {rainfall_tif_path}. Error: {raster_error}")
             continue  # Proceed to next iteration if error opening the file
-    
+
         except Exception as e:
-            logging.error(f"Unexpected error processing file {rainfall_tif_path}: {e}")
+            logging.error(
+                f"Unexpected error processing file {rainfall_tif_path}: {e}")
             continue  # Proceed to next iteration for any unexpected error
 
     # Convert the list to a 3D array (time, lat, lon)
@@ -476,13 +502,14 @@ def process_new_gridded_rainfall(rainfall_dekads_folder,
 
     # Standard scale new data based on saved values
     rainfall_mean, rainfall_std = read_stats()
-    gridded_rainfall_new = standardize_array(gridded_rainfall_new, rainfall_mean, rainfall_std)
-    
+    gridded_rainfall_new = standardize_array(
+        gridded_rainfall_new, rainfall_mean, rainfall_std)
+
     return gridded_rainfall_new, sorted_dates
 
 
 def update_gridded_rainfall(
-        download_folder='data/downloads', 
+        download_folder='data/downloads',
         download_path='data/downloads/tamsat/rfe/data/v3.1/daily',
         extract_folder='data/downloads/extracted_data/domain',
         dekads_path='data/downloads/tamsat/rfe/dekads',
@@ -498,15 +525,15 @@ def update_gridded_rainfall(
         temporal_data_path (str): Directory path to historic temporal data CSV.
     """
     try:
-        # Crop historic data if historic spatial and temporal data are not the same size   
+        # Crop historic data if historic spatial and temporal data are not the same size
         crop_historic_data(
             file_path="data/historic/gridded_rainfall.h5",
             temporal_data_path=temporal_data_path,
-            )
-        
+        )
+
         # Update rainfall data
         download_new_gridded_rainfall(download_folder)
-        
+
         # Process new files
         dekads_path_full = os.path.join(os.getcwd(), dekads_path)
         export_decadal_geotiffs(extract_folder, dekads_path_full)
@@ -514,36 +541,44 @@ def update_gridded_rainfall(
         historic_dates = get_historic_dates()
 
         # Identify new files
-        new_data = np.array([sorted_files[i] for i in range(len(dates)) if dates[i].strftime("%Y-%m-%d") not in historic_dates])
-        new_dates = [ts.strftime("%Y-%m-%d") for ts in dates if ts.strftime("%Y-%m-%d") not in historic_dates]
-        
+        new_data = np.array([sorted_files[i] for i in range(
+            len(dates)) if dates[i].strftime("%Y-%m-%d") not in historic_dates])
+        new_dates = [ts.strftime(
+            "%Y-%m-%d") for ts in dates if ts.strftime("%Y-%m-%d") not in historic_dates]
+
         if len(new_data) == 0:
             logging.info("No new files to process.")
-            
+
         else:
             # Crop area to regions of interest
             regions_gdf = cleaning_utils.extract_regions()
-            
+
             # Calculate total number of cells
             total_cells = new_data[0].shape[0] * new_data[0].shape[1]
-            
+
             # Create new temporal data
-            rainfall_temporal = pd.DataFrame({'rainfall': new_data.sum(axis=(1, 2))})
+            rainfall_temporal = pd.DataFrame(
+                {'rainfall': new_data.sum(axis=(1, 2))})
             rainfall_temporal['date'] = new_dates
             temporal_mean, temporal_std = read_stats(region='all_temporal')
-            rainfall_temporal['rainfall'] = (rainfall_temporal['rainfall'] - temporal_mean) / temporal_std
-            
+            rainfall_temporal['rainfall'] = (
+                rainfall_temporal['rainfall'] - temporal_mean) / temporal_std
+
             # Loop through regions
             for i in range(len(regions_gdf)):
                 region_data = regions_gdf.iloc[[i]]
                 region_code = gridded_data_stats.region_to_code_dict[region_data['region'].values[0]]
-                region_area = cleaning_utils.mask_regions(region_data, np.array(new_data))
-                
+                region_area = cleaning_utils.mask_regions(
+                    region_data, np.array(new_data))
+
                 # Get stats for region
-                temporal_mean_region, temporal_std_region = read_stats(region=region_code)
-                rainfall_temporal[f"rainfall_{region_code}"] = np.nansum(region_area, axis=(1, 2)) / (total_cells - np.sum(np.isnan(region_area[0])))
-                rainfall_temporal[f"rainfall_{region_code}"] = (rainfall_temporal[f"rainfall_{region_code}"] - temporal_mean_region) / temporal_std_region
-    
+                temporal_mean_region, temporal_std_region = read_stats(
+                    region=region_code)
+                rainfall_temporal[f"rainfall_{region_code}"] = np.nansum(
+                    region_area, axis=(1, 2)) / (total_cells - np.sum(np.isnan(region_area[0])))
+                rainfall_temporal[f"rainfall_{region_code}"] = (
+                    rainfall_temporal[f"rainfall_{region_code}"] - temporal_mean_region) / temporal_std_region
+
             # Append new data to HDF5
             with h5py.File('data/historic/gridded_rainfall.h5', 'a') as hdf:
                 dset = hdf['rainfall']
@@ -551,10 +586,12 @@ def update_gridded_rainfall(
                 dset.resize(dset.shape[0] + new_data.shape[0], axis=0)
                 dset[-new_data.shape[0]:] = new_data
                 logging.info(f"Updated rainfall dataset shape: {dset.shape}")
-                
+
             # Update temporal data
-            rainfall_temporal_historic = pd.read_csv(temporal_data_path)[:old_dataset_length] # Crop to length of spatial data
-            rainfall_temporal_new = pd.concat([rainfall_temporal_historic, rainfall_temporal])
+            rainfall_temporal_historic = pd.read_csv(temporal_data_path)[
+                :old_dataset_length]  # Crop to length of spatial data
+            rainfall_temporal_new = pd.concat(
+                [rainfall_temporal_historic, rainfall_temporal])
 
             # Save the updated temporal data
             rainfall_temporal_new.to_csv(temporal_data_path, index=False)

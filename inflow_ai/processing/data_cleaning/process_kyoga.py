@@ -20,6 +20,7 @@ URL = 'https://blueice.gsfc.nasa.gov/gwm/timeseries/lake000398.10d.2.txt'
 FOLDER_PATH = 'data/downloads/lake_levels'
 FILE_PATH = os.path.join(FOLDER_PATH, 'Kyoga.txt')
 
+
 def download_data(url=URL, folder_path=FOLDER_PATH, file_path=FILE_PATH):
     """
     Download a file from a specified URL and save it to the specified folder path for Lake Kyoga.
@@ -35,9 +36,11 @@ def download_data(url=URL, folder_path=FOLDER_PATH, file_path=FILE_PATH):
                 file.write(response.content)
             print(f"File successfully downloaded and saved to {file_path}")
         else:
-            raise Exception(f"Failed to download file. Status code: {response.status_code}")
+            raise Exception(
+                f"Failed to download file. Status code: {response.status_code}")
     except Exception as e:
         print(f"Error in downloading data: {e}")
+
 
 def load_and_preprocess_data(file_path=FILE_PATH):
     """
@@ -58,8 +61,10 @@ def load_and_preprocess_data(file_path=FILE_PATH):
         kyoga = pd.read_csv(file_path, skiprows=50, sep=r'\s+', names=columns)
 
         # Convert columns to correct formats
-        kyoga['Date'] = pd.to_datetime(kyoga['Date'], format='%Y%m%d', errors='coerce')
-        kyoga['Target_height_variation'] = pd.to_numeric(kyoga['Target_height_variation'], errors='coerce')
+        kyoga['Date'] = pd.to_datetime(
+            kyoga['Date'], format='%Y%m%d', errors='coerce')
+        kyoga['Target_height_variation'] = pd.to_numeric(
+            kyoga['Target_height_variation'], errors='coerce')
 
         # Handle missing values
         kyoga.replace([999.99, 99.999], np.nan, inplace=True)
@@ -69,12 +74,14 @@ def load_and_preprocess_data(file_path=FILE_PATH):
         kyoga = kyoga.groupby('Date').mean().reset_index()
 
         # Rename column
-        kyoga.rename(columns={"Target_height_variation": "kyoga_height_variation"}, inplace=True)
+        kyoga.rename(
+            columns={"Target_height_variation": "kyoga_height_variation"}, inplace=True)
 
         return kyoga
     except Exception as e:
         print(f"Error in loading and preprocessing data: {e}")
         return pd.DataFrame()
+
 
 def find_nearest_future_date(date, date_list):
     """
@@ -87,13 +94,15 @@ def find_nearest_future_date(date, date_list):
         print(f"Error in finding nearest future date: {e}")
         return np.nan
 
+
 def align_with_dates(kyoga, dates_list):
     """
     Align the Kyoga data with a list of dates, finding the nearest past date for each entry.
     """
     try:
         # Create new column with nearest past date
-        kyoga['date'] = kyoga['Date'].apply(lambda x: find_nearest_future_date(x, dates_list))
+        kyoga['date'] = kyoga['Date'].apply(
+            lambda x: find_nearest_future_date(x, dates_list))
 
         # Group by new date column
         kyoga = kyoga.groupby('date').mean().reset_index()
@@ -108,6 +117,7 @@ def align_with_dates(kyoga, dates_list):
     except Exception as e:
         print(f"Error in aligning data with dates: {e}")
         return kyoga
+
 
 def scale_data(kyoga):
     """
@@ -133,7 +143,7 @@ def scale_data(kyoga):
     except Exception as e:
         print(f"Error in scaling data: {e}")
         return kyoga
-        
+
 
 def interpolate_missing(kyoga):
     """
@@ -142,7 +152,7 @@ def interpolate_missing(kyoga):
     # Create a group identifier for consecutive missing values
     missing_mask = kyoga.isnull().any(axis=1)
     group_id = (missing_mask != missing_mask.shift()).cumsum()
-    
+
     # Filter out the groups that are not missing and count consecutive missing values
     consecutive_missing_counts = (
         kyoga[missing_mask]
@@ -150,22 +160,23 @@ def interpolate_missing(kyoga):
         .groupby('group_id')
         .size()
     )
-    
+
     # Convert the counts to a DataFrame for better readability
-    consecutive_missing_counts = consecutive_missing_counts.reset_index(name='count')
+    consecutive_missing_counts = consecutive_missing_counts.reset_index(
+        name='count')
     end_missing_streak = consecutive_missing_counts.iloc[-1]['count']
-    
+
     # Impute missing values based on most recent data
     kyoga_filled = kyoga.interpolate(method='linear')
-    
+
     # Count how many consecutive rows are missing from the end
     last_streak = kyoga.isnull().iloc[::-1].all(axis=1).cumsum().max()
-    
+
     # If there's a streak, revert those rows back to NaN
     if kyoga.iloc[-1].isna()['kyoga_height_variation']:
         kyoga_filled.iloc[-end_missing_streak:] = np.nan
     kyoga = kyoga_filled.copy()
-    
+
     return kyoga
 
 
@@ -185,7 +196,8 @@ def update_kyoga():
 
         # Impute missing values
         kyoga = interpolate_missing(kyoga)
-        kyoga = cleaning_utils.impute_missing_values(kyoga, ['kyoga_height_variation'])
+        kyoga = cleaning_utils.impute_missing_values(
+            kyoga, ['kyoga_height_variation'])
 
         # Filter to study period
         min_date = pd.to_datetime('2002-07-01')
@@ -197,6 +209,6 @@ def update_kyoga():
         # Save the processed data
         kyoga.to_csv('data/historic/kyoga.csv', index=True)
         print("Kyoga data processing completed successfully.")
-        
+
     except Exception as e:
         print(f"Error in processing Kyoga data: {e}")

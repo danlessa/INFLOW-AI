@@ -20,6 +20,7 @@ URL = 'https://blueice.gsfc.nasa.gov/gwm/timeseries/lake000314.10d.2.txt'
 FOLDER_PATH = 'data/downloads/lake_levels'
 FILE_PATH = os.path.join(FOLDER_PATH, 'Victoria.txt')
 
+
 def download_data(url=URL, folder_path=FOLDER_PATH, file_path=FILE_PATH):
     """
     Download a file from a specified URL and save it to the specified folder path.
@@ -43,7 +44,8 @@ def download_data(url=URL, folder_path=FOLDER_PATH, file_path=FILE_PATH):
                 file.write(response.content)
             print(f"File successfully downloaded and saved to {file_path}")
         else:
-            raise Exception(f"Failed to download file. Status code: {response.status_code}")
+            raise Exception(
+                f"Failed to download file. Status code: {response.status_code}")
     except Exception as e:
         print(f"Error in downloading data: {e}")
 
@@ -70,11 +72,14 @@ def load_and_preprocess_data(file_path=FILE_PATH):
         ]
 
         # Load data
-        victoria = pd.read_csv(file_path, skiprows=50, sep=r'\s+', names=columns)
+        victoria = pd.read_csv(file_path, skiprows=50,
+                               sep=r'\s+', names=columns)
 
         # Convert columns to correct formats
-        victoria['Date'] = pd.to_datetime(victoria['Date'], format='%Y%m%d', errors='coerce')
-        victoria['Target_height_variation'] = pd.to_numeric(victoria['Target_height_variation'], errors='coerce')
+        victoria['Date'] = pd.to_datetime(
+            victoria['Date'], format='%Y%m%d', errors='coerce')
+        victoria['Target_height_variation'] = pd.to_numeric(
+            victoria['Target_height_variation'], errors='coerce')
 
         # Handle missing values
         victoria.replace([999.99, 99.999], np.nan, inplace=True)
@@ -84,7 +89,8 @@ def load_and_preprocess_data(file_path=FILE_PATH):
         victoria = victoria.groupby('Date').mean().reset_index()
 
         # Rename column
-        victoria.rename(columns={"Target_height_variation": "victoria_height_variation"}, inplace=True)
+        victoria.rename(
+            columns={"Target_height_variation": "victoria_height_variation"}, inplace=True)
 
         return victoria
     except Exception as e:
@@ -124,7 +130,8 @@ def align_with_dates(victoria, dates_list):
     """
     try:
         # Create new column with nearest past date
-        victoria['date'] = victoria['Date'].apply(lambda x: find_nearest_future_date(x, dates_list))
+        victoria['date'] = victoria['Date'].apply(
+            lambda x: find_nearest_future_date(x, dates_list))
 
         # Group by new date column
         victoria = victoria.groupby('date').mean().reset_index()
@@ -165,8 +172,8 @@ def scale_data(victoria):
     except Exception as e:
         print(f"Error in scaling data: {e}")
         return victoria
-        
-        
+
+
 def interpolate_missing(victoria):
     """
     Function to impute past values of Victoria data.
@@ -174,7 +181,7 @@ def interpolate_missing(victoria):
     # Create a group identifier for consecutive missing values
     missing_mask = victoria.isnull().any(axis=1)
     group_id = (missing_mask != missing_mask.shift()).cumsum()
-    
+
     # Filter out the groups that are not missing and count consecutive missing values
     consecutive_missing_counts = (
         victoria[missing_mask]
@@ -182,22 +189,23 @@ def interpolate_missing(victoria):
         .groupby('group_id')
         .size()
     )
-    
+
     # Convert the counts to a DataFrame for better readability
-    consecutive_missing_counts = consecutive_missing_counts.reset_index(name='count')
+    consecutive_missing_counts = consecutive_missing_counts.reset_index(
+        name='count')
     end_missing_streak = consecutive_missing_counts.iloc[-1]['count']
-    
+
     # Impute missing values based on most recent data
     victoria_filled = victoria.interpolate(method='linear')
-    
+
     # Count how many consecutive rows are missing from the end
     last_streak = victoria.isnull().iloc[::-1].all(axis=1).cumsum().max()
-    
+
     # If there's a streak, revert those rows back to NaN
     if victoria.iloc[-1].isna()['victoria_height_variation']:
         victoria_filled.iloc[-end_missing_streak:] = np.nan
     victoria = victoria_filled.copy()
-    
+
     return victoria
 
 
@@ -223,7 +231,8 @@ def update_victoria():
 
         # Impute missing values
         victoria = interpolate_missing(victoria)
-        victoria = cleaning_utils.impute_missing_values(victoria, ['victoria_height_variation'])
+        victoria = cleaning_utils.impute_missing_values(
+            victoria, ['victoria_height_variation'])
 
         # Filter to study period
         min_date = pd.to_datetime('2002-07-01')

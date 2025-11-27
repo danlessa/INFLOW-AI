@@ -28,7 +28,8 @@ from data.stats import gridded_data_stats
 
 # Configure logging
 import logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def read_stats(region='all'):
@@ -37,9 +38,9 @@ def read_stats(region='all'):
     """
     inundation_mean = gridded_data_stats.inundation_stats[region]['mean']
     inundation_std = gridded_data_stats.inundation_stats[region]['std']
-    
+
     return inundation_mean, inundation_std
-    
+
 
 def download_inundation(dates_list, download_path='data/downloads/inundation_masks'):
     """
@@ -146,7 +147,8 @@ def process_and_clip_rasters(tif_files, folder_path, catchments):
 
         try:
             with rasterio.open(file_path) as src:
-                clipped, clipped_transform = rasterio_mask(src, catchments.geometry, crop=True)
+                clipped, clipped_transform = rasterio_mask(
+                    src, catchments.geometry, crop=True)
                 clipped_meta = src.meta.copy()
                 clipped_meta.update({
                     "driver": "GTiff",
@@ -216,12 +218,13 @@ def download_new_inundation(download_path='data/downloads/inundation_masks', bur
     )
 
     if new_dates:
-        logging.info(f"Downloading {len(new_dates)} dates (including last {burn_in_steps} for refresh).")
+        logging.info(
+            f"Downloading {len(new_dates)} dates (including last {burn_in_steps} for refresh).")
         download_inundation(new_dates, download_path)
     else:
         logging.info("No new dates to download.")
-        
-        
+
+
 def crop_historic_data(file_path, temporal_data_path, temporal_data_path_scaled):
     """
     Crop or recreate the historic inundation HDF5 dataset to match the temporal CSV lengths.
@@ -244,7 +247,8 @@ def crop_historic_data(file_path, temporal_data_path, temporal_data_path_scaled)
         # --- If HDF5 shorter, crop CSVs to match ---
         if current_len < new_len:
             hist.iloc[:current_len].to_csv(temporal_data_path, index=False)
-            hist_scaled.iloc[:current_len].to_csv(temporal_data_path_scaled, index=False)
+            hist_scaled.iloc[:current_len].to_csv(
+                temporal_data_path_scaled, index=False)
             print(f"✂️ Cropped CSVs to {current_len} timesteps.")
 
         # --- If HDF5 longer, recreate file (truncate + rewrite) ---
@@ -270,8 +274,8 @@ def crop_historic_data(file_path, temporal_data_path, temporal_data_path_scaled)
 
         else:
             print("✅ No cropping needed. Temporal lengths already match.")
-        
-        
+
+
 def remove_burn_in_data(h5_file_path="data/historic/inundation.h5",
                         temporal_data_path="data/historic/inundation_temporal_unscaled.csv",
                         temporal_data_path_scaled="data/historic/inundation_temporal_scaled.csv",
@@ -280,7 +284,7 @@ def remove_burn_in_data(h5_file_path="data/historic/inundation.h5",
     """
     Remove the last `burn_in_steps` dekads from saved MODIS data 
     (spatio-temporal HDF5 dataset and temporal CSVs).
-    
+
     Parameters:
         h5_file_path (str): Path to spatio-temporal historic MODIS HDF5 file.
         temporal_data_path (str): Path to temporal unscaled CSV file.
@@ -294,7 +298,8 @@ def remove_burn_in_data(h5_file_path="data/historic/inundation.h5",
     # --- Process HDF5 file ---
     with h5py.File(h5_file_path, "r") as f:
         if dset_name not in f:
-            raise KeyError(f"Dataset '{dset_name}' not found in {h5_file_path}.")
+            raise KeyError(
+                f"Dataset '{dset_name}' not found in {h5_file_path}.")
         data = f[dset_name][:]
 
     # Crop last axis (remove last `burn_in_steps` entries)
@@ -317,21 +322,23 @@ def remove_burn_in_data(h5_file_path="data/historic/inundation.h5",
     for csv_path in [temporal_data_path, temporal_data_path_scaled]:
         df = pd.read_csv(csv_path)
         if len(df) <= burn_in_steps:
-            raise ValueError(f"Not enough rows in {csv_path} to remove burn-in data.")
-        
+            raise ValueError(
+                f"Not enough rows in {csv_path} to remove burn-in data.")
+
         # Remove last burn-in rows
         df_cropped = df.iloc[:-burn_in_steps].reset_index(drop=True)
-        
+
         # Ensure sorted by 'date' column if it exists
         if "date" in df_cropped.columns:
             df_cropped["date"] = pd.to_datetime(df_cropped["date"])
             df_cropped = df_cropped.sort_values("date").reset_index(drop=True)
-        
+
         # Save back to CSV
         df_cropped.to_csv(csv_path, index=False)
-    
-    print(f"Removed last {burn_in_steps} timesteps from HDF5 and temporal CSVs (sorted by date).")
-        
+
+    print(
+        f"Removed last {burn_in_steps} timesteps from HDF5 and temporal CSVs (sorted by date).")
+
 
 def update_inundation(download_path='data/downloads/inundation_masks',
                       temporal_data_path='data/historic/inundation_temporal_unscaled.csv',
@@ -347,15 +354,16 @@ def update_inundation(download_path='data/downloads/inundation_masks',
     try:
         with h5py.File('data/historic/inundation.h5', 'r') as f:
             inundation_historic = f['inundation']
-            logging.info(f"Existing inundation data shape: {inundation_historic.shape}")
-            
-        # Crop historic data if historic spatial and temporal data are not the same size   
+            logging.info(
+                f"Existing inundation data shape: {inundation_historic.shape}")
+
+        # Crop historic data if historic spatial and temporal data are not the same size
         crop_historic_data(
             file_path="data/historic/inundation.h5",
             temporal_data_path=temporal_data_path,
             temporal_data_path_scaled=temporal_data_path_scaled
         )
-            
+
         # Remove burn-in data
         remove_burn_in_data()
 
@@ -367,8 +375,10 @@ def update_inundation(download_path='data/downloads/inundation_masks',
         historic_dates = get_historic_dates()
 
         # Identify new files to process (files not already processed)
-        file_dates = [datetime.strptime(f.split('.')[0], "%Y%m%d").strftime("%Y-%m-%d") for f in sorted_files]
-        new_dates_indices = [i for i, date in enumerate(file_dates) if date not in historic_dates]
+        file_dates = [datetime.strptime(f.split('.')[0], "%Y%m%d").strftime(
+            "%Y-%m-%d") for f in sorted_files]
+        new_dates_indices = [i for i, date in enumerate(
+            file_dates) if date not in historic_dates]
         new_files = [sorted_files[i] for i in new_dates_indices]
 
         if not new_files:
@@ -382,33 +392,42 @@ def update_inundation(download_path='data/downloads/inundation_masks',
         catchments = reproject_to_raster_crs(catchments, first_raster_path)
 
         # Process rasters and gather new data
-        new_clipped_tif_files, _, _ = process_and_clip_rasters(new_files, download_path, catchments)
-        
+        new_clipped_tif_files, _, _ = process_and_clip_rasters(
+            new_files, download_path, catchments)
+
         # Crop area to regions of interest
         regions_gdf = cleaning_utils.extract_regions()
-        
+
         # Calculate total number of cells
-        total_cells = new_clipped_tif_files[0].shape[0] * new_clipped_tif_files[0].shape[1]
-        
+        total_cells = new_clipped_tif_files[0].shape[0] * \
+            new_clipped_tif_files[0].shape[1]
+
         # Create new temporal data
-        inundation_temporal = pd.DataFrame(np.sum(new_clipped_tif_files, axis=(1, 2)) / total_cells, columns=["percent_inundation"])
-        
+        inundation_temporal = pd.DataFrame(np.sum(new_clipped_tif_files, axis=(
+            1, 2)) / total_cells, columns=["percent_inundation"])
+
         # Fix index creation by looping over new_files
-        inundation_temporal['date'] = [datetime.strptime(file.split('.')[0], "%Y%m%d").date() for file in new_files]
+        inundation_temporal['date'] = [datetime.strptime(
+            file.split('.')[0], "%Y%m%d").date() for file in new_files]
         inundation_temporal_scaled = inundation_temporal.copy()
         temporal_mean, temporal_std = read_stats()
-        inundation_temporal_scaled['percent_inundation'] = (inundation_temporal_scaled['percent_inundation'] - temporal_mean) / temporal_std
-        
+        inundation_temporal_scaled['percent_inundation'] = (
+            inundation_temporal_scaled['percent_inundation'] - temporal_mean) / temporal_std
+
         # Loop through regions
         for i in range(len(regions_gdf)):
             region_data = regions_gdf.iloc[[i]]
             region_code = gridded_data_stats.region_to_code_dict[region_data['region'].values[0]]
-            region_area = cleaning_utils.mask_regions(region_data, np.array(new_clipped_tif_files))
-            
+            region_area = cleaning_utils.mask_regions(
+                region_data, np.array(new_clipped_tif_files))
+
             # Get stats for region
-            temporal_mean_region, temporal_std_region = read_stats(region=region_code)
-            inundation_temporal[f"percent_inundation_{region_code}"] = np.nansum(region_area, axis=(1, 2)) / (total_cells - np.sum(np.isnan(region_area[0])))
-            scaled_region_temporal_data = (inundation_temporal[f'percent_inundation_{region_code}'] - temporal_mean_region) / temporal_std_region
+            temporal_mean_region, temporal_std_region = read_stats(
+                region=region_code)
+            inundation_temporal[f"percent_inundation_{region_code}"] = np.nansum(
+                region_area, axis=(1, 2)) / (total_cells - np.sum(np.isnan(region_area[0])))
+            scaled_region_temporal_data = (
+                inundation_temporal[f'percent_inundation_{region_code}'] - temporal_mean_region) / temporal_std_region
             inundation_temporal_scaled[f'percent_inundation_{region_code}'] = scaled_region_temporal_data
 
         # Combine existing and new inundation data
@@ -418,19 +437,27 @@ def update_inundation(download_path='data/downloads/inundation_masks',
             dset.resize(dset.shape[0] + len(new_clipped_tif_files), axis=0)
             dset[-len(new_clipped_tif_files):] = new_clipped_tif_files
             logging.info(f"Updated inundation data shape: {dset.shape}")
-            
+
         # Update temporal data
-        inundation_temporal_historic = pd.read_csv(temporal_data_path)[:old_dataset_length] # Crop to length of spatial data
-        inundation_temporal_historic_scaled = pd.read_csv(temporal_data_path_scaled)[:old_dataset_length] # Crop to length of spatial data
-        inundation_temporal_new = pd.concat([inundation_temporal_historic, inundation_temporal])
-        inundation_temporal_new_scaled = pd.concat([inundation_temporal_historic_scaled, inundation_temporal_scaled])
-        
+        inundation_temporal_historic = pd.read_csv(temporal_data_path)[
+            :old_dataset_length]  # Crop to length of spatial data
+        inundation_temporal_historic_scaled = pd.read_csv(temporal_data_path_scaled)[
+            :old_dataset_length]  # Crop to length of spatial data
+        inundation_temporal_new = pd.concat(
+            [inundation_temporal_historic, inundation_temporal])
+        inundation_temporal_new_scaled = pd.concat(
+            [inundation_temporal_historic_scaled, inundation_temporal_scaled])
+
         # Save the updated temporal data
-        inundation_temporal_new['date'] = pd.to_datetime(inundation_temporal_new['date'], format='%Y-%m-%d')
-        inundation_temporal_new.sort_values("date").to_csv('data/historic/inundation_temporal_unscaled.csv', index=False)
-        inundation_temporal_new_scaled['date'] = pd.to_datetime(inundation_temporal_new_scaled['date'], format='%Y-%m-%d')
-        inundation_temporal_new_scaled.sort_values("date").to_csv('data/historic/inundation_temporal_scaled.csv', index=False)
-            
+        inundation_temporal_new['date'] = pd.to_datetime(
+            inundation_temporal_new['date'], format='%Y-%m-%d')
+        inundation_temporal_new.sort_values("date").to_csv(
+            'data/historic/inundation_temporal_unscaled.csv', index=False)
+        inundation_temporal_new_scaled['date'] = pd.to_datetime(
+            inundation_temporal_new_scaled['date'], format='%Y-%m-%d')
+        inundation_temporal_new_scaled.sort_values("date").to_csv(
+            'data/historic/inundation_temporal_scaled.csv', index=False)
+
     except Exception as e:
         logging.error(f"Error processing new inundation data: {e}")
 

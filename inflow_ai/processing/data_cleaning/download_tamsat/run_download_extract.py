@@ -29,7 +29,7 @@ download({
     "end_date": '2021-06-30',
     "version": 3.1,
     "localdata_dir": localdata_dir
-    })
+})
 
 
 # Extract TAMSAT rainfall estimates at a point
@@ -42,8 +42,8 @@ extract({
     "end_date": '2021-06-30',
     "version": 3.1,
     "localdata_dir": localdata_dir
-    })
-    
+})
+
 
 # Extract area-average TAMSAT rainfall estimates
 extract({
@@ -57,8 +57,8 @@ extract({
     "end_date": '2021-06-30',
     "version": 3.1,
     "localdata_dir": localdata_dir
-    })
-    
+})
+
 
 # Subset TAMSAT rainfall estimates for a given domain
 extract({
@@ -72,4 +72,4 @@ extract({
     "end_date": '2021-06-30',
     "version": '3.1',
     "localdata_dir": localdata_dir
-    })
+})
