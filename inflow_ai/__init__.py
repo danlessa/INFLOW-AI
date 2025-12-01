@@ -1,0 +1,1 @@
+from inflow_ai.__main__ import main

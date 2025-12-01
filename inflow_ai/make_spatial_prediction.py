@@ -26,6 +26,7 @@ from matplotlib.lines import Line2D
 import zipfile
 from inflow_ai.processing.data_cleaning import process_inundation
 from inflow_ai.processing import cleaning_utils
+import pickle
 
 # Configure logging
 logging.basicConfig(
@@ -185,7 +186,7 @@ def load_deployment_inputs(X_path, indices_path):
     return X, indices
 
 
-def predict_with_model(model, X, batch_size=32):
+def predict_with_model(model, X, batch_size=16):
     logger.info("Running model prediction...")
     X_input = X.transpose(0, 1, 3, 4, 2)  # To (N, T, H, W, C)
     print("Making spatial predictions...")
@@ -195,7 +196,7 @@ def predict_with_model(model, X, batch_size=32):
 
 
 def reconstruct_maps(y_pred, indices, full_shape, border=4):
-    logger.info("Reconstructing full maps from predicted patches...")
+    logger.info(f"Reconstructing full maps from predicted patches... (N_i = {len(indices)})")
 
     patch_size = y_pred.shape[1]
     y_pred_cropped = crop_borders(y_pred, border=border)
@@ -235,7 +236,9 @@ def run_inference_pipeline(
     moisture_file_path='data/historic/gridded_moisture.h5',
     static_dir='data/maps',
     full_shape=(1125, 1204),
-    border=4
+    border=4,
+    pickle_dump='data/y_pred.pkl',
+    read_inference=False
 ):
     model = load_trained_model(model_path)
 
@@ -246,7 +249,17 @@ def run_inference_pipeline(
         static_dir=static_dir
     )
 
-    y_pred = predict_with_model(model, X)
+    if pickle_dump:
+        if read_inference:
+            with open(pickle_dump, 'rb') as fid:
+                y_pred = pickle.load(fid)
+        else:
+            with open(pickle_dump, 'wb') as fid:
+                y_pred = predict_with_model(model, X)
+                pickle.dump(y_pred, fid)
+    else:
+        y_pred = predict_with_model(model, X)
+
     maps = reconstruct_maps(y_pred, indices, full_shape, border=border)
     return maps
 
@@ -714,87 +727,46 @@ def export_raster(mask, path, transform, crs):
 
 
 def export_qgis_files(masks, current_extent, transform, crs, regions_gdf, folder_title,
-                      metas, inundation_file='20250211.tif'):
+                      metas, inundation_file='20250211.tif', suffix=''):
+    temp_path = FilePath(
+        f"predictions/{folder_title}/")
 
-    from tempfile import TemporaryDirectory
+    transform = metas[inundation_file]["transform"]
+    crs = metas[inundation_file]["crs"]
 
-    zip_path = FilePath(
-        f"predictions/{folder_title}/spatial_predictions/flood_prediction_spatial_data.zip")
-    with TemporaryDirectory() as temp_dir:
-        temp_path = FilePath(temp_dir)
+    # Align and export rasters
+    export_raster(
+        align_mask((masks["Worst Case"] > 0).astype(np.uint8),
+                    metas[inundation_file]["transform"],
+                    metas[inundation_file]["crs"], metas, inundation_file),
+        temp_path / "flood_scenario_worst.tif", transform, crs
+    )
 
-        transform = metas[inundation_file]["transform"]
-        crs = metas[inundation_file]["crs"]
+    export_raster(
+        align_mask((masks["Average Case"] > 0).astype(np.uint8),
+                    metas[inundation_file]["transform"],
+                    metas[inundation_file]["crs"], metas, inundation_file),
+        temp_path / "flood_scenario_average.tif", transform, crs
+    )
 
-        # Align and export rasters
-        export_raster(
-            align_mask((masks["Worst Case"] > 0).astype(np.uint8),
-                       metas[inundation_file]["transform"],
-                       metas[inundation_file]["crs"], metas, inundation_file),
-            temp_path / "flood_scenario_worst.tif", transform, crs
-        )
+    export_raster(
+        align_mask((masks["Best Case"] > 0).astype(np.uint8),
+                    metas[inundation_file]["transform"],
+                    metas[inundation_file]["crs"], metas, inundation_file),
+        temp_path / "flood_scenario_best.tif", transform, crs
+    )
 
-        export_raster(
-            align_mask((masks["Average Case"] > 0).astype(np.uint8),
-                       metas[inundation_file]["transform"],
-                       metas[inundation_file]["crs"], metas, inundation_file),
-            temp_path / "flood_scenario_average.tif", transform, crs
-        )
-
-        export_raster(
-            align_mask((masks["Best Case"] > 0).astype(np.uint8),
-                       metas[inundation_file]["transform"],
-                       metas[inundation_file]["crs"], metas, inundation_file),
-            temp_path / "flood_scenario_best.tif", transform, crs
-        )
-
-        export_raster(
-            align_mask((current_extent > 0).astype(np.uint8),
-                       metas[inundation_file]["transform"],
-                       metas[inundation_file]["crs"], metas, inundation_file),
-            temp_path / "current_extent.tif", transform, crs
-        )
-
-        regions_gdf.to_file(temp_path / "admin_boundaries.shp")
-
-        pop_centres = gpd.read_file(
-            "data/maps/population_centres/hotosm_ssd_populated_places_points_shp.shp")
-        pop_centres = pop_centres[pop_centres['population'].notna()]
-        pop_centres = pop_centres[pop_centres['population'].astype(
-            int) >= 10000]
-        pop_centres = pop_centres.to_crs(crs)
-        pop_centres.to_file(temp_path / "population_centres.shp")
-
-        msf_data = [
-            ("Leer", 8.301, 30.107),
-            ("Lankien", 8.519, 31.956),
-            ("Bentiu", 9.239, 29.506),
-            ("Renk", 11.746, 32.766),
-            ("EGPAA (Boma & Maruwa)", 6.234, 34.193),
-            ("Old Fangak", 9.0707, 30.8146),
-            ("Aweil", 8.721, 27.276),
-            ("Abyei", 9.628, 28.0616),
-            ("Twic (Mayen Abun)", 9.1275, 28.11)
-        ]
-        msf_gdf = gpd.GeoDataFrame(
-            msf_data,
-            columns=["name", "lat", "lon"],
-            geometry=gpd.points_from_xy([x[2] for x in msf_data], [
-                                        x[1] for x in msf_data]),
-            crs="EPSG:4326"
-        ).to_crs(crs)
-        msf_gdf.to_file(temp_path / "msf_locations.shp")
-
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for file in temp_path.rglob("*"):
-                zipf.write(file, arcname=file.name)
-
-        print(f"Exported QGIS-ready files to: {zip_path.resolve()}")
+    export_raster(
+        align_mask((current_extent > 0).astype(np.uint8),
+                    metas[inundation_file]["transform"],
+                    metas[inundation_file]["crs"], metas, inundation_file),
+        temp_path / "current_extent.tif", transform, crs
+    )
 
 
-def run_full_spatial_analysis():
+def run_full_spatial_analysis(read_inference=False):
     # Run inference
-    maps = run_inference_pipeline()
+    maps = run_inference_pipeline(read_inference=read_inference)
 
     # Load prediction CSV
     pred_df, folder_title = load_latest_prediction_csv()
@@ -802,7 +774,9 @@ def run_full_spatial_analysis():
     # Determine example time index
     assert sorted(maps.keys())[-1] + 13 == len(
         pred_df), f"Mismatch in prediction timeline with historic data = {sorted(maps.keys())[-1] + 13} and prediction data = {len(pred_df)}"
-    example_t = sorted(maps.keys())[-1]
+    
+
+    t_list = sorted(maps.keys())
 
     # Extract flood thresholds
     flood_percentages = {
@@ -811,11 +785,7 @@ def run_full_spatial_analysis():
         "Best Case": pred_df.iloc[-1]['lower_bound_95']
     }
 
-    # Generate flood masks
-    masks = {
-        scenario: generate_flood_mask(maps[example_t], pct)
-        for scenario, pct in flood_percentages.items()
-    }
+
 
     # Load spatial reference and current extent
     with h5py.File('data/historic/inundation.h5', 'r') as f:
@@ -849,32 +819,41 @@ def run_full_spatial_analysis():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Plot full country
-    title = f"Predicted South Sudan Flood Extent Change from {folder_title[23:33]} to {folder_title[-10:]}\n"
-    fig = plot_flood_change_map(masks, current_extent, transform, crs, regions_gdf,
-                                inundation_clipped, metas, inundation_file='20250211.tif', title=title)
-    fig.savefig(
-        output_dir / f"south_sudan_spatial_prediction_{folder_title[23:33]}_to_{folder_title[-10:]}.png", dpi=300)
-    plt.close(fig)
+    # Generate flood masks
+    print('aa')
+    print(maps)
+    print(t_list)
+    for t in t_list:
+        masks = {
+            scenario: generate_flood_mask(maps[t], pct)
+            for scenario, pct in flood_percentages.items()
+        }
+        title = f"Predicted South Sudan Flood Extent Change from {folder_title[23:33]} to {folder_title[-10:]} ({t})\n"
+        fig = plot_flood_change_map(masks, current_extent, transform, crs, regions_gdf,
+                                    inundation_clipped, metas, inundation_file='20250211.tif', title=title)
+        fig.savefig(
+            output_dir / f"south_sudan_spatial_prediction_{folder_title[23:33]}_to_{folder_title[-10:]}_{t}.png", dpi=300)
+        plt.close(fig)
 
-    # Plot regions
-    for region in regions_gdf['region']:
-        if region.strip().lower() == "south sudan":
-            continue
+        # Plot regions
+        for region in regions_gdf['region']:
+            if region.strip().lower() == "south sudan":
+                continue
 
-        region_clean = "_".join(region.lower().split())
-        title = f"Predicted {region} Flood Extent Change from {folder_title[23:33]} to {folder_title[-10:]}\n"
+            region_clean = "_".join(region.lower().split())
+            title = f"Predicted {region} Flood Extent Change from {folder_title[23:33]} to {folder_title[-10:]} ({t})\n"
 
-        try:
-            fig = plot_flood_change_map(
-                masks, current_extent, transform, crs, regions_gdf,
-                inundation_clipped, metas, inundation_file='20250211.tif',
-                region_name=region, title=title)
-            filename = f"{region_clean}_spatial_prediction_{folder_title[23:33]}_to_{folder_title[-10:]}.png"
-            fig.savefig(output_dir / filename, dpi=300)
-            plt.close(fig)
-        except Exception as e:
-            print(f"Error plotting {region}: {e}")
+            try:
+                fig = plot_flood_change_map(
+                    masks, current_extent, transform, crs, regions_gdf,
+                    inundation_clipped, metas, inundation_file='20250211.tif',
+                    region_name=region, title=title)
+                filename = f"{region_clean}_spatial_prediction_{folder_title[23:33]}_to_{folder_title[-10:]}_{t}.png"
+                fig.savefig(output_dir / filename, dpi=300)
+                plt.close(fig)
+            except Exception as e:
+                print(f"Error plotting {region}: {e}")
 
-    # Export for QGIS
-    export_qgis_files(masks, current_extent, transform, crs, regions_gdf,
-                      folder_title, metas, inundation_file='20250211.tif')
+        # Export for QGIS
+        export_qgis_files(masks, current_extent, transform, crs, regions_gdf,
+                        folder_title, metas, inundation_file='20250211.tif', suffix=f"_{t}")

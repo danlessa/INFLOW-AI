@@ -612,7 +612,7 @@ def export_graphs(data, future_dates, inundation_pred, lower_bound_unscaled_inun
     plt.close()
 
 
-def main():
+def main(read_inference=False):
     """
     Main function to run model produce updated predictions.
     """
@@ -627,10 +627,10 @@ def main():
         inundation_pred, lb_pred, ub_pred, inundation_temporal_unscaled = re_scale_predictions(
             data, y_pred, X_pred, future_dates, model_delta)
         export_csv(inundation_pred, lb_pred, ub_pred, future_dates)
-        export_graphs(data, future_dates, inundation_pred,
-                      lb_pred, ub_pred, inundation_temporal_unscaled)
-        print_trigger(inundation_pred, future_dates)
-        make_spatial_prediction.run_full_spatial_analysis()
+        # export_graphs(data, future_dates, inundation_pred,
+        #               lb_pred, ub_pred, inundation_temporal_unscaled)
+        # print_trigger(inundation_pred, future_dates)
+        make_spatial_prediction.run_full_spatial_analysis(read_inference=read_inference)
 
         logging.info(f"Predictions exported.")
 
@@ -639,4 +639,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(read_inference=True)
